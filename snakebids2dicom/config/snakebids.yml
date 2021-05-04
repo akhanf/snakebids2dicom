@@ -1,5 +1,5 @@
-bids_dir: '/path/to/bids_dir'
-output_dir: '/path/to/output_dir'
+bids_dir: '.'
+output_dir: '.'
 
 #enable printing debug statements during parsing -- disable if generating dag visualization
 debug: False
@@ -33,6 +33,9 @@ pybids_inputs:
     - acquisition
     - suffix
 
+
+participant_label:
+exclude_participant_label:
 
 #configuration for the command-line parameters to make available
 # passed on the argparse add_argument()
@@ -93,3 +96,17 @@ parse_args:
 #singularity containers
 singularity:
   nifti2dicom: docker://tristankk/nifti2dicom
+
+bids_to_n2d_option:
+  SeriesDescription: seriesdescription
+  InstitutionName: institutionname
+  AcquisitionTime: acquisitiontime
+  AcquisitionNumber: acquisitionnumber
+  SeriesNumber: seriesnumber
+  Manufacturer: manufacturer
+  ManufacturersModelName: manufacturersmodelname
+  ProtocolName: protocolname
+  SoftwareVersions: softwareversion
+  Modality: modality
+
+

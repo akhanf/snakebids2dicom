@@ -53,14 +53,23 @@ def get_studyinstanceuid(wildcards):
     
     from pydicom.uid import generate_uid
     #generate unique uid based on subj wildcards (ie unique for subject/session)
-    generate_uid(entropy_srcs=config['subj_wildcards'].keys())
+    return generate_uid(entropy_srcs=config['subj_wildcards'].keys())
 
+
+def get_opts_from_json(wildcards,input):
+    import json
+    with open(input.json) as f:
+        bids = json.load(f)
+    return ' '.join( [ f'--{n2d_opt} \"{bids[key]}\"' for key,n2d_opt in config['bids_to_n2d_option'].items()] )
 
 rule nifti2dicom:
     input:
-        config["input_path"]["scan"]
+        nii = config["input_path"]["scan"],
+        json = config["input_path"]["scan"][:-7]+'.json'
     params:
-        studyinstanceuid = get_studyinstanceuid
+        studyinstanceuid = get_studyinstanceuid,
+        orientation_opt = '--reorient RSP',
+        opts_from_json = get_opts_from_json
     output:
         directory(
             bids(
@@ -71,7 +80,7 @@ rule nifti2dicom:
     container:
         "docker://tristankk/nifti2dicom:0.4.11"
     shell:
-        "nifti2dicom -i {input} -o {output} -y --studyinstanceuid {params.studyinstanceuid} --patientname {wildcards.subject}"
+        "nifti2dicom -i {input.nii} -o {output} -y {params.orientation_opt} --studyinstanceuid {params.studyinstanceuid} --patientname {wildcards.subject} --patientid {wildcards.subject} {params.opts_from_json}"
 
 rule push_to_orthanc:
     input:
