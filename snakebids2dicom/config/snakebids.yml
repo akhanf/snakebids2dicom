@@ -91,14 +91,23 @@ parse_args:
     action: 'store_true'
     default: False
 
+  --study_description:
+    help: 'Study description DICOM tag'
+    required: True
+
 #--- workflow specific configuration -- below is just an example:
 
 #singularity containers
 singularity:
-  nifti2dicom: docker://tristankk/nifti2dicom
+  nifti2dicom: docker://yinglilu/nifti2dicom:0.4.20210412
+
+orientations:
+  RSP: coronal
+  RPS: axial
+  PSR: sagittal
+  
 
 bids_to_n2d_option:
-  SeriesDescription: seriesdescription
   InstitutionName: institutionname
   AcquisitionTime: acquisitiontime
   AcquisitionNumber: acquisitionnumber

@@ -22,11 +22,12 @@ def get_all_input():
     if config["push_to_orthanc"]:
         return {
             "scan": expand(
-                bids(
-                    root="orthanc_push",
+                expand(bids(
+                    root='orthanc/{study_desc}',
+                    orient='{orient}',
                     desc="done",
                     **config["input_wildcards"]["scan"],
-                ),
+                ),orient=config['orientations'].keys(),study_desc=config['study_description'],allow_missing=True),
                 zip,
                 **config["input_zip_lists"]["scan"]
             ),
@@ -34,10 +35,11 @@ def get_all_input():
     else:
         return {
             "scan": expand(
-                bids(
-                    root="dicom",
+                expand(bids(
+                    root='dicom/{study_desc}',
+                    orient='{orient}',
                     **config["input_wildcards"]["scan"],
-                ),
+                ),orient=config['orientations'].keys(),study_desc=config['study_description'],allow_missing=True),
                 zip,
                 **config["input_zip_lists"]["scan"],
             ),
@@ -53,7 +55,21 @@ def get_studyinstanceuid(wildcards):
     
     from pydicom.uid import generate_uid
     #generate unique uid based on subj wildcards (ie unique for subject/session)
-    return generate_uid(entropy_srcs=config['subj_wildcards'].keys())
+    if 'session' in wildcards:
+        return generate_uid(entropy_srcs=[wildcards.subject, wildcards.session])
+    else:
+        return generate_uid(entropy_srcs=[wildcards.subject ])
+
+def get_series_description_with_orient(wildcards,input):
+    import json
+    with open(input.json) as f:
+        bids = json.load(f)
+
+    desc = bids['SeriesDescription']
+    orient = config['orientations'][wildcards.orient]
+
+    return f'\"{desc} {orient}\"'
+
 
 
 def get_opts_from_json(wildcards,input):
@@ -68,30 +84,32 @@ rule nifti2dicom:
         json = config["input_path"]["scan"][:-7]+'.json'
     params:
         studyinstanceuid = get_studyinstanceuid,
-        orientation_opt = '--reorient RSP',
-        opts_from_json = get_opts_from_json
+        orientation_opt = lambda wildcards: f'--reorient {wildcards.orient}',
+        opts_from_json = get_opts_from_json,
+        sub_ses = lambda wildcards: f'sub-{wildcards.subject}_ses-{wildcards.session}' if 'session' in wildcards else f'sub-{wildcards.subject}',
+        study_description = config['study_description'],
+        series_description = get_series_description_with_orient
     output:
-        directory(
-            bids(
-                root="dicom",
-                **config["input_wildcards"]["scan"],
-            )
-        )
-    container:
-        "docker://tristankk/nifti2dicom:0.4.11"
+        directory(bids(
+                root='dicom/{study_desc}',
+                orient='{orient}',
+                **config["input_wildcards"]["scan"]))
+    container: config['singularity']['nifti2dicom']
     shell:
-        "nifti2dicom -i {input.nii} -o {output} -y {params.orientation_opt} --studyinstanceuid {params.studyinstanceuid} --patientname {wildcards.subject} --patientid {wildcards.subject} {params.opts_from_json}"
+        "nifti2dicom -i {input.nii} -o {output} -y {params.orientation_opt} --studyinstanceuid {params.studyinstanceuid} --patientname {params.sub_ses} --patientid {params.sub_ses} {params.opts_from_json} --studydescription {params.study_description} --seriesdescription {params.series_description}"
 
 rule push_to_orthanc:
     input:
         bids(
-            root="dicom",
+            root='dicom/{study_desc}',
+            orient='{orient}',
             **config["input_wildcards"]["scan"],
         )
     output:
         touch(
             bids(
-                root="orthanc_push",
+                root='orthanc/{study_desc}',
+                orient='{orient}',
                 desc="done",
                 **config["input_wildcards"]["scan"],
             )
